@@ -1,6 +1,7 @@
 import chokidar, { FSWatcher } from 'chokidar'
 import path from 'path'
 import { BrowserWindow } from 'electron'
+import appsAPI from './api/renderer/apps'
 
 class AppWatcher {
   private watcher: FSWatcher | null = null
@@ -85,14 +86,12 @@ class AppWatcher {
     }
 
     // 设置新的定时器
-    this.debounceTimer = setTimeout(() => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        console.log(`通知渲染进程应用列表变化: ${type} ${filePath}`)
-        this.mainWindow.webContents.send('apps-changed', {
-          type,
-          path: filePath
-        })
-      }
+    this.debounceTimer = setTimeout(async () => {
+      console.log(`检测到应用变化: ${type} ${filePath}`)
+
+      // 刷新应用缓存
+      await appsAPI.refreshAppsCache()
+
       this.debounceTimer = null
     }, this.DEBOUNCE_DELAY)
   }

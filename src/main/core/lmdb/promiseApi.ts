@@ -6,7 +6,7 @@ import { SyncApi } from './syncApi'
  * 将同步 API 包装为 Promise 形式
  */
 export class PromiseApi {
-  constructor(private syncApi: SyncApi) {}
+  constructor(private syncApi: SyncApi) { }
 
   /**
    * 创建或更新文档（异步）
@@ -18,7 +18,7 @@ export class PromiseApi {
     return new Promise((resolve, reject) => {
       setImmediate(() => {
         try {
-          console.log('lmdb put', doc)
+          // console.log('lmdb put', doc)
           const result = this.syncApi.put(doc)
           resolve(result)
         } catch (e) {
@@ -37,9 +37,9 @@ export class PromiseApi {
     return new Promise((resolve, reject) => {
       setImmediate(() => {
         try {
-          console.log('lmdb get', id)
+          // console.log('lmdb get', id)
           const result = this.syncApi.get(id)
-          console.log('lmdb get result', result)
+          // console.log('lmdb get result', result)
           resolve(result)
         } catch (e) {
           reject(e)

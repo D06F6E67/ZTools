@@ -46,7 +46,7 @@ export class WindowAPI {
 
   public resizeWindow(height: number): void {
     if (this.mainWindow) {
-      console.log('收到调整窗口高度请求:', height)
+      // console.log('收到调整窗口高度请求:', height)
       const [width] = this.mainWindow.getSize()
       // 限制高度范围: 最小 59px, 最大 600px
       const newHeight = Math.max(59, Math.min(height, 600))

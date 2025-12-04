@@ -45,8 +45,6 @@ class PluginManager {
       console.error('查询插件信息失败:', error)
     }
 
-    console.log('从数据库查询到的插件信息:', pluginInfoFromDB)
-
     // 先尝试从缓存中复用已有视图
     const cached = this.pluginViews.find((v) => v.path === pluginPath)
     if (cached) {
@@ -125,8 +123,6 @@ class PluginManager {
       const preloadPath = pluginConfig.preload
         ? path.join(pluginPath, pluginConfig.preload)
         : undefined
-
-      console.log('插件配置:', { pluginUrl, preloadPath, featureCode })
 
       const sess = session.fromPartition('persist:' + pluginConfig.name)
       sess.registerPreloadScript({

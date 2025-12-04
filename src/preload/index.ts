@@ -65,8 +65,8 @@ contextBridge.exposeInMainWorld('ztools', {
   onPluginsChanged: (callback: () => void) => {
     ipcRenderer.on('plugins-changed', callback)
   },
-  onAppsChanged: (callback: (data: { type: 'add' | 'remove'; path: string }) => void) => {
-    ipcRenderer.on('apps-changed', (_event, data) => callback(data))
+  onAppsChanged: (callback: () => void) => {
+    ipcRenderer.on('apps-changed', callback)
   },
   onShowPluginPlaceholder: (callback: () => void) => {
     ipcRenderer.on('show-plugin-placeholder', callback)
@@ -178,7 +178,7 @@ declare global {
         callback: (windowInfo: { appName: string; bundleId: string; timestamp: number }) => void
       ) => void
       onPluginsChanged: (callback: () => void) => void
-      onAppsChanged: (callback: (data: { type: 'add' | 'remove'; path: string }) => void) => void
+      onAppsChanged: (callback: () => void) => void
       onShowPluginPlaceholder: (callback: () => void) => void
       onShowSettings: (callback: () => void) => void
       onAppLaunched: (callback: () => void) => void

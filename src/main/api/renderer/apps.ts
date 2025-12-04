@@ -35,13 +35,36 @@ export class AppsAPI {
   private setupIPC(): void {
     ipcMain.handle('get-apps', () => this.getApps())
     ipcMain.handle('launch', (_event, options: any) => this.launch(options))
+    ipcMain.handle('refresh-apps-cache', () => this.refreshAppsCache())
   }
 
   /**
    * 获取系统应用列表，并处理图标缓存
+   * 优先从数据库缓存读取，没有缓存时才扫描
    */
   private async getApps(): Promise<any[]> {
     console.log('收到获取应用列表请求')
+
+    // 尝试从数据库缓存读取
+    try {
+      const cachedApps = await databaseAPI.dbGet('cached-apps')
+      if (cachedApps && Array.isArray(cachedApps) && cachedApps.length > 0) {
+        console.log(`从缓存读取到 ${cachedApps.length} 个应用`)
+        return cachedApps
+      }
+    } catch (error) {
+      console.log('读取应用缓存失败，将进行扫描:', error)
+    }
+
+    // 缓存不存在，执行扫描
+    console.log('缓存不存在，开始扫描应用...')
+    return await this.scanAndCacheApps()
+  }
+
+  /**
+   * 扫描应用并缓存到数据库
+   */
+  private async scanAndCacheApps(): Promise<any[]> {
     const apps = await scanApplications()
     console.log(`扫描到 ${apps.length} 个应用,开始处理图标...`)
 
@@ -69,7 +92,34 @@ export class AppsAPI {
     )
 
     console.log(`图标处理完成: 成功 ${successCount} 个, 失败 ${failCount} 个`)
+
+    // 保存到数据库缓存
+    try {
+      await databaseAPI.dbPut('cached-apps', appsWithIcons)
+      console.log('应用列表已缓存到数据库')
+    } catch (error) {
+      console.error('缓存应用列表失败:', error)
+    }
+
     return appsWithIcons
+  }
+
+  /**
+   * 刷新应用缓存（当检测到应用文件夹变化时调用）
+   */
+  public async refreshAppsCache(): Promise<void> {
+    console.log('开始刷新应用缓存...')
+    try {
+      await this.scanAndCacheApps()
+      console.log('应用缓存刷新成功')
+
+      // 通知渲染进程应用列表已更新
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('apps-changed')
+      }
+    } catch (error) {
+      console.error('刷新应用缓存失败:', error)
+    }
   }
 
   /**
@@ -198,15 +248,10 @@ export class AppsAPI {
 
       if (type === 'plugin') {
         // 从插件列表中查找
-        const plugins = (await this.pluginManager?.getRunningPluginsInfo()) || []
         const dbPlugins = await this.getPluginsFromDB()
 
         // 先从运行中的插件查找
-        let plugin = plugins.find((p: any) => p.path === appPath)
-        if (!plugin) {
-          // 从数据库查找
-          plugin = dbPlugins.find((p: any) => p.path === appPath)
-        }
+        const plugin = dbPlugins.find((p: any) => p.path === appPath)
 
         if (plugin) {
           // 读取插件配置获取完整信息

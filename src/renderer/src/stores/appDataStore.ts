@@ -83,6 +83,12 @@ export const useAppDataStore = defineStore('appData', () => {
         loadHistoryData()
       })
 
+      // 监听应用列表变化事件（应用文件夹变化时触发）
+      window.ztools.onAppsChanged(() => {
+        console.log('收到应用列表变化通知，重新加载')
+        loadApps()
+      })
+
       isInitialized.value = true
       console.log('应用数据初始化完成')
     } catch (error) {
