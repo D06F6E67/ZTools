@@ -22,7 +22,6 @@ export class WindowAPI {
       this.setTrayIconVisible(visible)
     )
     ipcMain.handle('set-hide-on-blur', (_event, hide: boolean) => this.setHideOnBlur(hide))
-    ipcMain.handle('window:paste', () => windowManager.pasteToActiveWindow())
   }
 
   private setupWindowEvents(): void {

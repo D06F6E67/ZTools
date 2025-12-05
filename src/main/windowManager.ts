@@ -2,7 +2,6 @@ import { BrowserWindow, screen, globalShortcut, app, Tray, Menu, nativeImage } f
 import { is, platform } from '@electron-toolkit/utils'
 import path from 'path'
 import clipboardManager from './clipboardManager'
-import appleScriptHelper from './utils/appleScriptHelper'
 import pluginManager from './pluginManager'
 import trayIcon from '../../resources/trayTemplate@2x.png?asset'
 
@@ -251,15 +250,14 @@ class WindowManager {
     if (!this.mainWindow) return
 
     if (this.mainWindow.isFocused()) {
-      console.log('窗口已显示，隐藏窗口')
       this.mainWindow.blur()
       this.mainWindow.hide()
+      this.restorePreviousWindow()
     } else {
       // 记录打开窗口前的激活窗口
       const currentWindow = clipboardManager.getCurrentWindow()
       if (currentWindow) {
         this.previousActiveWindow = currentWindow
-        console.log('记录打开前的激活窗口:', currentWindow.appName)
 
         // 发送窗口信息到渲染进程
         this.mainWindow.webContents.send('window-info-changed', currentWindow)
@@ -331,41 +329,6 @@ class WindowManager {
     } catch (error) {
       console.error('恢复激活窗口异常:', error)
       return false
-    }
-  }
-
-  /**
-   * 执行粘贴操作
-   * 1. 先恢复之前激活的窗口
-   * 2. 等待窗口激活
-   * 3. 执行粘贴快捷键
-   */
-  public async pasteToActiveWindow(): Promise<{ success: boolean; error?: string }> {
-    try {
-      // 1. 恢复之前激活的窗口
-      const restored = await this.restorePreviousWindow()
-      if (!restored) {
-        return { success: false, error: '恢复激活窗口失败' }
-      }
-
-      // 2. 等待窗口激活（给系统一点时间切换窗口）
-      await this.sleep(200)
-
-      // 3. 使用 AppleScript 执行粘贴操作
-      if (platform.isMacOS) {
-        const success = await appleScriptHelper.paste()
-        if (success) {
-          return { success: true }
-        } else {
-          return { success: false, error: '执行粘贴操作失败' }
-        }
-      } else {
-        // Windows/Linux 暂不支持
-        return { success: false, error: '当前只支持 macOS' }
-      }
-    } catch (error: any) {
-      console.error('粘贴操作失败:', error)
-      return { success: false, error: error.message || '未知错误' }
     }
   }
 

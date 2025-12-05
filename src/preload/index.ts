@@ -103,8 +103,6 @@ contextBridge.exposeInMainWorld('ztools', {
     ipcRenderer.invoke('register-global-shortcut', shortcut, target),
   unregisterGlobalShortcut: (shortcut: string) =>
     ipcRenderer.invoke('unregister-global-shortcut', shortcut),
-  // 窗口相关
-  windowPaste: () => ipcRenderer.invoke('window:paste'),
   // 子输入框相关
   notifySubInputChange: (text: string) => ipcRenderer.send('notify-sub-input-change', text),
   onUpdateSubInputPlaceholder: (
