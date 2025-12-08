@@ -17,8 +17,18 @@
     </div>
     <!-- 操作栏 -->
     <div class="search-actions">
-      <!-- 头像按钮 -->
+      <!-- 更新提示（有下载好的更新时显示） -->
+      <div
+        v-if="windowStore.updateDownloadInfo.hasDownloaded && !windowStore.currentPlugin"
+        class="update-notification"
+        @click="handleUpdateClick"
+      >
+        <span class="update-text">新版本已下载，点击升级</span>
+        <UpdateIcon />
+      </div>
+      <!-- 头像按钮（无更新或插件模式时显示） -->
       <img
+        v-else
         :src="avatarUrl"
         height="36"
         width="36"
@@ -32,6 +42,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useWindowStore } from '../stores/windowStore'
+import UpdateIcon from './UpdateIcon.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -174,6 +185,27 @@ async function handleSettingsClick(): Promise<void> {
   }
 }
 
+async function handleUpdateClick(): Promise<void> {
+  try {
+    // 确认升级
+    const confirmed = confirm(
+      `确定要升级到版本 ${windowStore.updateDownloadInfo.version} 吗？\n\n应用将重启以完成升级。`
+    )
+    if (!confirmed) {
+      return
+    }
+
+    // 执行升级
+    const result = await window.ztools.updater.installDownloadedUpdate()
+    if (!result.success) {
+      alert(`升级失败: ${result.error}`)
+    }
+  } catch (error: any) {
+    console.error('升级失败:', error)
+    alert(`升级失败: ${error.message || '未知错误'}`)
+  }
+}
+
 defineExpose({
   focus: () => inputRef.value?.focus()
 })
@@ -235,6 +267,34 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.update-notification {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  transition: all 0.2s;
+  -webkit-app-region: no-drag;
+}
+
+.update-notification:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.02);
+}
+
+.update-notification:active {
+  transform: scale(0.98);
+}
+
+.update-text {
+  font-size: 13px;
+  color: #10b981;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .search-btn {

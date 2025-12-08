@@ -143,7 +143,20 @@ contextBridge.exposeInMainWorld('ztools', {
   // 软件更新
   updater: {
     checkUpdate: () => ipcRenderer.invoke('updater:check-update'),
-    startUpdate: (updateInfo: any) => ipcRenderer.invoke('updater:start-update', updateInfo)
+    startUpdate: (updateInfo: any) => ipcRenderer.invoke('updater:start-update', updateInfo),
+    installDownloadedUpdate: () => ipcRenderer.invoke('updater:install-downloaded-update'),
+    getDownloadStatus: () => ipcRenderer.invoke('updater:get-download-status')
+  },
+  onUpdateDownloaded: (
+    callback: (data: { version: string; changelog: string[] }) => void
+  ) => {
+    ipcRenderer.on('update-downloaded', (_event, data) => callback(data))
+  },
+  onUpdateDownloadStart: (callback: (data: { version: string }) => void) => {
+    ipcRenderer.on('update-download-start', (_event, data) => callback(data))
+  },
+  onUpdateDownloadFailed: (callback: (data: { error: string }) => void) => {
+    ipcRenderer.on('update-download-failed', (_event, data) => callback(data))
   },
   // 获取应用版本
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

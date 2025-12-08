@@ -299,6 +299,29 @@ onMounted(async () => {
     await appDataStore.loadApps()
   })
 
+  // 监听更新下载完成事件
+  window.ztools.onUpdateDownloaded((data) => {
+    console.log('更新已下载:', data)
+    windowStore.setUpdateDownloadInfo({
+      hasDownloaded: true,
+      version: data.version,
+      changelog: data.changelog
+    })
+  })
+
+  // 监听更新下载开始事件
+  window.ztools.onUpdateDownloadStart((data) => {
+    console.log('开始下载更新:', data)
+  })
+
+  // 监听更新下载失败事件
+  window.ztools.onUpdateDownloadFailed((data) => {
+    console.error('更新下载失败:', data)
+  })
+
+  // 检查是否有已下载的更新
+  windowStore.checkDownloadedUpdate()
+
   // 全局键盘事件监听
   window.addEventListener('keydown', handleKeydown)
 })

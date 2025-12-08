@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain, app, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import AdmZip from 'adm-zip'
@@ -7,19 +7,314 @@ import { downloadFile } from '../utils/download.js'
 import { spawn } from 'child_process'
 
 /**
+ * 更新路径配置
+ */
+interface UpdatePaths {
+  updaterPath: string
+  asarSrc: string
+  asarDst: string
+  unpackedSrc: string
+  unpackedDst: string
+  appPath: string
+}
+
+/**
  * 升级管理 API
  */
 export class UpdaterAPI {
   private updateCheckUrl = 'https://ilt.lanzouu.com/b0pn8htad'
   private updateCheckPwd = '1f8i'
+  private mainWindow: BrowserWindow | null = null
+  private checkTimer: NodeJS.Timeout | null = null
+  private downloadedUpdateInfo: any = null
+  private downloadedUpdatePath: string | null = null
 
-  public init(): void {
+  public init(mainWindow: BrowserWindow): void {
+    this.mainWindow = mainWindow
     this.setupIPC()
+    this.startAutoCheck()
   }
 
   private setupIPC(): void {
     ipcMain.handle('updater:check-update', () => this.checkUpdate())
     ipcMain.handle('updater:start-update', (_event, updateInfo) => this.startUpdate(updateInfo))
+    ipcMain.handle('updater:install-downloaded-update', () => this.installDownloadedUpdate())
+    ipcMain.handle('updater:get-download-status', () => this.getDownloadStatus())
+  }
+
+  /**
+   * 启动自动检查（30分钟一次）
+   */
+  private startAutoCheck(): void {
+    // 应用启动后立即进行首次检查
+    this.autoCheckAndDownload()
+
+    // 每30分钟检查一次
+    this.checkTimer = setInterval(() => {
+      this.autoCheckAndDownload()
+    }, 30 * 60 * 1000)
+  }
+
+  /**
+   * 自动检查并下载更新
+   */
+  private async autoCheckAndDownload(): Promise<void> {
+    try {
+      console.log('开始自动检查更新...')
+
+      // 如果已经下载过更新，不再重复下载
+      if (this.downloadedUpdateInfo) {
+        console.log('已有下载的更新，跳过检查')
+        return
+      }
+
+      const result = await this.checkUpdate()
+
+      if (result.hasUpdate && result.updateInfo) {
+        console.log('发现新版本，开始自动下载...', result.updateInfo)
+
+        // 通知渲染进程开始下载
+        this.mainWindow?.webContents.send('update-download-start', {
+          version: result.updateInfo.version
+        })
+
+        // 执行下载
+        const downloadResult = await this.downloadAndExtractUpdate(result.updateInfo)
+
+        if (downloadResult.success) {
+          this.downloadedUpdateInfo = result.updateInfo
+          this.downloadedUpdatePath = downloadResult.extractPath
+
+          // 通知渲染进程下载完成
+          this.mainWindow?.webContents.send('update-downloaded', {
+            version: result.updateInfo.version,
+            changelog: result.updateInfo.changelog
+          })
+
+          console.log('更新下载完成，等待用户安装')
+        } else {
+          console.error('更新下载失败:', downloadResult.error)
+          this.mainWindow?.webContents.send('update-download-failed', {
+            error: downloadResult.error
+          })
+        }
+      }
+    } catch (error) {
+      console.error('自动检查更新失败:', error)
+    }
+  }
+
+  /**
+   * 获取下载状态
+   */
+  private getDownloadStatus(): any {
+    if (this.downloadedUpdateInfo) {
+      return {
+        hasDownloaded: true,
+        version: this.downloadedUpdateInfo.version,
+        changelog: this.downloadedUpdateInfo.changelog
+      }
+    }
+    return { hasDownloaded: false }
+  }
+
+  /**
+   * 根据平台选择下载URL
+   */
+  private selectDownloadUrl(updateInfo: any): string {
+    const isMac = process.platform === 'darwin'
+    const isWin = process.platform === 'win32'
+    const isArm64 = process.arch === 'arm64'
+
+    let downloadUrl = updateInfo.downloadUrl
+
+    if (isWin && updateInfo.downloadUrlWin64) {
+      downloadUrl = updateInfo.downloadUrlWin64
+    } else if (isMac && isArm64 && updateInfo.downloadUrlMacArm) {
+      downloadUrl = updateInfo.downloadUrlMacArm
+    }
+
+    if (!downloadUrl) {
+      throw new Error(`未找到适配当前系统(${process.platform}-${process.arch})的下载地址`)
+    }
+
+    return downloadUrl
+  }
+
+  /**
+   * 下载并解压更新包
+   */
+  private async downloadAndExtractUpdate(updateInfo: any): Promise<any> {
+    try {
+      // 1. 选择下载URL
+      const downloadUrl = this.selectDownloadUrl(updateInfo)
+
+      // 2. 获取真实下载链接
+      const realDownloadUrl = await getLanzouDownloadLink(downloadUrl)
+
+      // 3. 下载更新包
+      const tempDir = path.join(app.getPath('userData'), 'ztools-update-pkg')
+      await fs.mkdir(tempDir, { recursive: true })
+      const tempZipPath = path.join(tempDir, `update-${Date.now()}.zip`)
+      const extractPath = path.join(tempDir, `extracted-${Date.now()}`)
+
+      console.log('下载更新包...', realDownloadUrl)
+      await downloadFile(realDownloadUrl, tempZipPath)
+
+      // 4. 解压
+      console.log('解压更新包...')
+      await fs.mkdir(extractPath, { recursive: true })
+
+      const zip = new AdmZip(tempZipPath)
+      await new Promise<void>((resolve, reject) => {
+        zip.extractAllToAsync(extractPath, true, (error) => {
+          if (error) {
+            reject(error)
+          } else {
+            resolve()
+          }
+        })
+      })
+
+      // 5. 重命名 app.asar.tmp -> app.asar
+      const appAsarTmp = path.join(extractPath, 'app.asar.tmp')
+      const appAsar = path.join(extractPath, 'app.asar')
+      try {
+        await fs.access(appAsarTmp)
+        await fs.rename(appAsarTmp, appAsar)
+        console.log('成功重命名: app.asar.tmp -> app.asar')
+      } catch (e) {
+        console.log('未找到 app.asar.tmp，可能直接是 app.asar 或位置不同')
+        console.log(e)
+      }
+
+      // 6. 删除 zip 文件节省空间
+      try {
+        await fs.unlink(tempZipPath)
+      } catch (e) {
+        console.error('删除 zip 文件失败:', e)
+      }
+
+      return { success: true, extractPath }
+    } catch (error: any) {
+      console.error('下载更新失败:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * 获取更新路径配置
+   */
+  private getUpdatePaths(extractPath: string): UpdatePaths {
+    const isMac = process.platform === 'darwin'
+    const isWin = process.platform === 'win32'
+    const appPath = process.execPath
+
+    const asarSrc = path.join(extractPath, 'app.asar')
+    const unpackedSrc = path.join(extractPath, 'app.asar.unpacked')
+
+    let updaterPath = ''
+    let asarDst = ''
+    let unpackedDst = ''
+
+    if (isMac) {
+      const contentsDir = path.dirname(path.dirname(appPath))
+      const resourcesDir = path.join(contentsDir, 'Resources')
+
+      if (!app.isPackaged) {
+        updaterPath = path.join(app.getAppPath(), 'src/updater/mac-arm64/ztools-updater')
+      } else {
+        updaterPath = path.join(path.dirname(appPath), 'ztools-updater')
+      }
+
+      asarDst = path.join(resourcesDir, 'app.asar')
+      unpackedDst = path.join(resourcesDir, 'app.asar.unpacked')
+    } else if (isWin) {
+      updaterPath = path.join(path.dirname(appPath), 'ztools-updater.exe')
+      const resourcesDir = path.join(path.dirname(appPath), 'resources')
+
+      asarDst = path.join(resourcesDir, 'app.asar')
+      unpackedDst = path.join(resourcesDir, 'app.asar.unpacked')
+    }
+
+    return { updaterPath, asarSrc, asarDst, unpackedSrc, unpackedDst, appPath }
+  }
+
+  /**
+   * 启动 updater 并退出应用
+   */
+  private async launchUpdater(paths: UpdatePaths): Promise<void> {
+    // 检查源文件是否存在
+    try {
+      await fs.access(paths.asarSrc)
+    } catch {
+      throw new Error('找不到更新文件: app.asar')
+    }
+
+    // 检查 updater 是否存在
+    try {
+      await fs.access(paths.updaterPath)
+    } catch {
+      throw new Error(`找不到升级程序: ${paths.updaterPath}`)
+    }
+
+    // 构建参数
+    const args = [
+      '--asar-src',
+      paths.asarSrc,
+      '--asar-dst',
+      paths.asarDst,
+      '--app',
+      paths.appPath
+    ]
+
+    if (paths.unpackedSrc) {
+      args.push('--unpacked-src', paths.unpackedSrc)
+      args.push('--unpacked-dst', paths.unpackedDst)
+    }
+
+    console.log('启动升级程序:', paths.updaterPath, args)
+
+    // 启动 updater
+    const subprocess = spawn(paths.updaterPath, args, {
+      detached: true,
+      stdio: 'ignore'
+    })
+
+    subprocess.unref()
+
+    // 退出应用
+    console.log('应用即将退出进行更新...')
+    app.quit()
+  }
+
+  /**
+   * 安装已下载的更新
+   */
+  private async installDownloadedUpdate(): Promise<any> {
+    try {
+      if (!this.downloadedUpdatePath || !this.downloadedUpdateInfo) {
+        throw new Error('没有可用的更新')
+      }
+
+      const paths = this.getUpdatePaths(this.downloadedUpdatePath)
+      await this.launchUpdater(paths)
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('安装更新失败:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * 清理定时器
+   */
+  public cleanup(): void {
+    if (this.checkTimer) {
+      clearInterval(this.checkTimer)
+      this.checkTimer = null
+    }
   }
 
   /**
@@ -107,143 +402,23 @@ export class UpdaterAPI {
   }
 
   /**
-   * 开始更新
+   * 开始更新（手动升级）
    */
   private async startUpdate(updateInfo: any): Promise<any> {
     try {
       console.log('开始更新流程...', updateInfo)
-      let downloadUrl = updateInfo.downloadUrl
 
-      const isMac = process.platform === 'darwin'
-      const isWin = process.platform === 'win32'
-      const isArm64 = process.arch === 'arm64'
-
-      if (isWin && updateInfo.downloadUrlWin64) {
-        downloadUrl = updateInfo.downloadUrlWin64
-      } else if (isMac && isArm64 && updateInfo.downloadUrlMacArm) {
-        downloadUrl = updateInfo.downloadUrlMacArm
+      // 1. 下载并解压更新包
+      const downloadResult = await this.downloadAndExtractUpdate(updateInfo)
+      if (!downloadResult.success) {
+        return downloadResult
       }
 
-      if (!downloadUrl) {
-        throw new Error(`未找到适配当前系统(${process.platform}-${process.arch})的下载地址`)
-      }
+      // 2. 获取更新路径配置
+      const paths = this.getUpdatePaths(downloadResult.extractPath)
 
-      // 1. 获取真实下载链接
-      const realDownloadUrl = await getLanzouDownloadLink(downloadUrl)
-
-      // 2. 下载更新包
-      const tempDir = path.join(app.getPath('userData'), 'ztools-update-pkg')
-      await fs.mkdir(tempDir, { recursive: true })
-      const tempZipPath = path.join(tempDir, `update-${Date.now()}.zip`)
-      const extractPath = path.join(tempDir, `extracted-${Date.now()}`)
-
-      console.log('下载更新包...', realDownloadUrl)
-      await downloadFile(realDownloadUrl, tempZipPath)
-
-      // 3. 解压
-      console.log('解压更新包...')
-      console.log('tempZipPath', tempZipPath)
-      console.log('extractPath', extractPath)
-      await fs.mkdir(extractPath, { recursive: true })
-
-      const zip = new AdmZip(tempZipPath)
-      try {
-        await new Promise<void>((resolve, reject) => {
-          zip.extractAllToAsync(extractPath, true, (error) => {
-            if (error) {
-              reject(error)
-            } else {
-              resolve()
-            }
-          })
-        })
-
-        // 重命名 app.asar.tmp -> app.asar
-        // 因为打包时为了避免被识别为 asar 导致解压问题，重命名为了 app.asar.tmp
-        const appAsarTmp = path.join(extractPath, 'app.asar.tmp')
-        const appAsar = path.join(extractPath, 'app.asar')
-        try {
-          await fs.access(appAsarTmp)
-          await fs.rename(appAsarTmp, appAsar)
-          console.log('成功重命名: app.asar.tmp -> app.asar')
-        } catch (e) {
-          console.log('未找到 app.asar.tmp，可能直接是 app.asar 或位置不同', e)
-        }
-      } catch (err) {
-        throw new Error(`解压失败: ${err}`)
-      }
-
-      // 4. 寻找 app.asar
-      const asarSrc = path.join(extractPath, 'app.asar')
-      const unpackedSrc = path.join(extractPath, 'app.asar.unpacked')
-      console.log('找到更新文件:', { asarSrc, unpackedSrc })
-
-      // 5. 准备 Updater 参数
-      // isMac and isWin are already defined at the top of the function
-
-      let updaterPath = ''
-      const appPath = process.execPath
-      let asarDst = ''
-      let unpackedDst = ''
-
-      console.log('appPath', appPath)
-
-      if (isMac) {
-        // macOS
-        // appPath: .../Contents/MacOS/zTools
-        // resourcesPath: .../Contents/Resources
-        // updaterPath: .../Contents/MacOS/ztools-updater (我们放这里)
-        const contentsDir = path.dirname(path.dirname(appPath)) // .../Contents
-        const resourcesDir = path.join(contentsDir, 'Resources')
-
-        if (!app.isPackaged) {
-          updaterPath = path.join(app.getAppPath(), 'src/updater/mac-arm64/ztools-updater')
-        } else {
-          updaterPath = path.join(path.dirname(appPath), 'ztools-updater')
-        }
-
-        asarDst = path.join(resourcesDir, 'app.asar')
-        unpackedDst = path.join(resourcesDir, 'app.asar.unpacked')
-      } else if (isWin) {
-        // Windows
-        // appPath: .../zTools.exe
-        // resourcesPath: .../resources
-        // updaterPath: .../ztools-updater.exe (我们放应用根目录)
-        updaterPath = path.join(path.dirname(appPath), 'ztools-updater.exe')
-        const resourcesDir = path.join(path.dirname(appPath), 'resources')
-
-        asarDst = path.join(resourcesDir, 'app.asar')
-        unpackedDst = path.join(resourcesDir, 'app.asar.unpacked')
-      }
-
-      // 检查 updater 是否存在
-      try {
-        await fs.access(updaterPath)
-      } catch {
-        throw new Error(`找不到升级程序: ${updaterPath}`)
-      }
-
-      // 6. 启动 Updater
-      const args = ['--asar-src', asarSrc, '--asar-dst', asarDst, '--app', appPath]
-
-      if (unpackedSrc) {
-        args.push('--unpacked-src', unpackedSrc)
-        args.push('--unpacked-dst', unpackedDst)
-      }
-
-      console.log('启动升级程序:', updaterPath, args)
-
-      // 使用 spawn detached 启动
-      const subprocess = spawn(updaterPath, args, {
-        detached: true,
-        stdio: 'ignore'
-      })
-
-      subprocess.unref()
-
-      // 7. 退出应用
-      console.log('应用即将退出进行更新...')
-      app.quit()
+      // 3. 启动 updater 并退出应用
+      await this.launchUpdater(paths)
 
       return { success: true }
     } catch (error: any) {

@@ -21,6 +21,13 @@ const DEFAULT_AVATAR = defaultAvattar
 // 自动粘贴选项
 export type AutoPasteOption = 'off' | '1s' | '3s' | '5s' | '10s'
 
+// 更新下载状态
+interface UpdateDownloadInfo {
+  hasDownloaded: boolean
+  version?: string
+  changelog?: string[]
+}
+
 export const useWindowStore = defineStore('window', () => {
   // 当前激活窗口信息
   const currentWindow = ref<WindowInfo | null>(null)
@@ -42,6 +49,9 @@ export const useWindowStore = defineStore('window', () => {
   const hideOnBlur = ref(true)
   const theme = ref('system') // system, light, dark
   const primaryColor = ref('blue') // blue, purple, green, orange, red, pink
+
+  // 更新下载状态
+  const updateDownloadInfo = ref<UpdateDownloadInfo>({ hasDownloaded: false })
 
   // 更新窗口信息
   function updateWindowInfo(windowInfo: WindowInfo | null): void {
@@ -131,6 +141,27 @@ export const useWindowStore = defineStore('window', () => {
     }
   }
 
+  // 更新下载状态
+  function setUpdateDownloadInfo(info: UpdateDownloadInfo): void {
+    updateDownloadInfo.value = info
+  }
+
+  // 检查是否有已下载的更新
+  async function checkDownloadedUpdate(): Promise<void> {
+    try {
+      const status = await window.ztools.updater.getDownloadStatus()
+      if (status.hasDownloaded) {
+        updateDownloadInfo.value = {
+          hasDownloaded: true,
+          version: status.version,
+          changelog: status.changelog
+        }
+      }
+    } catch (error) {
+      console.error('检查下载状态失败:', error)
+    }
+  }
+
   // 从数据库加载设置
   async function loadSettings(): Promise<void> {
     try {
@@ -175,6 +206,8 @@ export const useWindowStore = defineStore('window', () => {
     autoPaste,
     hideOnBlur,
     theme,
+    primaryColor,
+    updateDownloadInfo,
     updateWindowInfo,
     isFinder,
     updatePlaceholder,
@@ -186,7 +219,8 @@ export const useWindowStore = defineStore('window', () => {
     updateTheme,
     updatePrimaryColor,
     getAutoPasteTimeLimit,
-    loadSettings,
-    primaryColor
+    setUpdateDownloadInfo,
+    checkDownloadedUpdate,
+    loadSettings
   }
 })

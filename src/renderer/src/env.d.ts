@@ -158,7 +158,16 @@ declare global {
           error?: string
         }>
         startUpdate: (updateInfo: any) => Promise<{ success: boolean; error?: string }>
+        installDownloadedUpdate: () => Promise<{ success: boolean; error?: string }>
+        getDownloadStatus: () => Promise<{
+          hasDownloaded: boolean
+          version?: string
+          changelog?: string[]
+        }>
       }
+      onUpdateDownloaded: (callback: (data: { version: string; changelog: string[] }) => void) => void
+      onUpdateDownloadStart: (callback: (data: { version: string }) => void) => void
+      onUpdateDownloadFailed: (callback: (data: { error: string }) => void) => void
       getAppVersion: () => Promise<string>
       getSystemVersions: () => Promise<NodeJS.ProcessVersions>
     }

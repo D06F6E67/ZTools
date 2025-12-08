@@ -62,7 +62,7 @@ class APIManager {
     pluginFeatureAPI.init(pluginManager)
 
     // 初始化软件更新API
-    updaterAPI.init()
+    updaterAPI.init(mainWindow)
 
     // 设置一些特殊的IPC处理器
     this.setupSpecialHandlers()
