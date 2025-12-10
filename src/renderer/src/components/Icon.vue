@@ -205,12 +205,30 @@
       stroke-linecap="round"
       stroke-linejoin="round"
     />
+
+    <!-- 关闭图标 - X -->
+    <path
+      v-if="name === 'close'"
+      d="M18 6L6 18"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      v-if="name === 'close'"
+      d="M6 6L18 18"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
   </svg>
 </template>
 
 <script setup lang="ts">
 defineProps<{
-  name: 'settings' | 'plugin' | 'back' | 'keyboard' | 'store' | 'database' | 'trash' | 'list'
+  name: 'settings' | 'plugin' | 'back' | 'keyboard' | 'store' | 'database' | 'trash' | 'list' | 'close'
   size?: number | string
 }>()
 </script>

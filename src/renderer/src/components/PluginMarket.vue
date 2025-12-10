@@ -331,7 +331,8 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px;
+  padding: 20px;
+  background: var(--card-bg);
 }
 
 /* 自定义滚动条 */

@@ -88,7 +88,7 @@ const activeMenu = ref('general')
   margin-bottom: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  color: var(--text-secondary);
+  color: var(--text-color);
   border-radius: 8px;
 }
 
