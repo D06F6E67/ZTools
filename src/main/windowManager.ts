@@ -12,6 +12,7 @@ import {
 import path from 'path'
 import trayIconDark from '../../resources/trayTemplate@2x-dark.png?asset'
 import trayIconLight from '../../resources/trayTemplate@2x-light.png?asset'
+import trayIcon from '../../resources/trayTemplate@2x.png?asset'
 import clipboardManager from './clipboardManager'
 import pluginManager from './pluginManager'
 
@@ -154,7 +155,7 @@ class WindowManager {
     if (platform.isMacOS) {
       // macOS 使用 Template 模式的图标（会自动适配明暗主题）
       // 使用 dark 版本作为模板图标
-      icon = nativeImage.createFromPath(trayIconDark)
+      icon = nativeImage.createFromPath(trayIcon)
       // 设置为模板图标（适配明暗模式）
       icon.setTemplateImage(true)
     } else {
