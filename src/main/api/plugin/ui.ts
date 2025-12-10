@@ -21,7 +21,9 @@ export class PluginUIAPI {
     ipcMain.handle('set-expend-height', (_event, height: number) => this.setExpendHeight(height))
 
     // 子输入框相关
-    ipcMain.handle('set-sub-input', (_event, placeholder?: string) => this.setSubInput(placeholder))
+    ipcMain.handle('set-sub-input', (_event, placeholder?: string, isFocus?: boolean) =>
+      this.setSubInput(placeholder, isFocus)
+    )
     ipcMain.on('notify-sub-input-change', (_event, text: string) => this.notifySubInputChange(text))
     ipcMain.handle('set-sub-input-value', (_event, text: string) => this.setSubInputValue(text))
     ipcMain.on('sub-input-focus', (event) => {
@@ -62,12 +64,12 @@ export class PluginUIAPI {
     }
   }
 
-  private setSubInput(placeholder?: string): { success: boolean } {
+  private setSubInput(placeholder?: string, isFocus?: boolean): boolean {
     try {
       const pluginPath = this.pluginManager?.getCurrentPluginPath()
       if (!pluginPath) {
         console.warn('没有活动的插件,无法设置子输入框')
-        return { success: false }
+        return false
       }
 
       this.mainWindow?.webContents.send('update-sub-input-placeholder', {
@@ -76,11 +78,17 @@ export class PluginUIAPI {
       })
 
       this.pluginManager.setSubInputPlaceholder(placeholder || '搜索')
-      console.log('设置子输入框 placeholder:', { pluginPath, placeholder })
-      return { success: true }
+      console.log('设置子输入框 placeholder:', { pluginPath, placeholder, isFocus })
+
+      // 如果 isFocus 为 true，聚焦子输入框
+      if (isFocus) {
+        this.subInputFocus()
+      }
+
+      return true
     } catch (error: any) {
       console.error('设置子输入框失败:', error)
-      return { success: false }
+      return false
     }
   }
 

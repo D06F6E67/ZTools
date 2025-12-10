@@ -3,28 +3,48 @@
     <!-- 隐藏的测量元素,用于计算文本宽度 -->
     <div class="search-input-container">
       <span ref="measureRef" class="measure-text"></span>
-      <input ref="inputRef" type="text" :value="modelValue" :placeholder="placeholderText" class="search-input"
-        @input="onInput" @compositionstart="onCompositionStart" @compositionend="onCompositionEnd"
-        @keydown="onKeydown" />
+      <input
+        ref="inputRef"
+        type="text"
+        :value="modelValue"
+        :placeholder="placeholderText"
+        class="search-input"
+        @input="onInput"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
+        @keydown="onKeydown"
+        @keydown.left="(e) => keydownEvent(e, 'left')"
+        @keydown.right="(e) => keydownEvent(e, 'right')"
+        @keydown.down="(e) => keydownEvent(e, 'down')"
+        @keydown.up="(e) => keydownEvent(e, 'up')"
+      />
     </div>
     <!-- 操作栏 -->
     <div class="search-actions">
       <!-- 更新提示（有下载好的更新时显示） -->
-      <div v-if="windowStore.updateDownloadInfo.hasDownloaded && !windowStore.currentPlugin" class="update-notification"
-        @click="handleUpdateClick">
+      <div
+        v-if="windowStore.updateDownloadInfo.hasDownloaded && !windowStore.currentPlugin"
+        class="update-notification"
+        @click="handleUpdateClick"
+      >
         <span class="update-text">新版本已下载，点击升级</span>
         <UpdateIcon />
       </div>
       <!-- 头像按钮（无更新或插件模式时显示） -->
-      <img v-else :src="avatarUrl" :class="['search-btn', { 'default-avatar': isDefaultAvatar }]" @click="handleSettingsClick" />
+      <img
+        v-else
+        :src="avatarUrl"
+        :class="['search-btn', { 'default-avatar': isDefaultAvatar }]"
+        @click="handleSettingsClick"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { useWindowStore } from '../stores/windowStore';
-import UpdateIcon from './UpdateIcon.vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useWindowStore } from '../stores/windowStore'
+import UpdateIcon from './UpdateIcon.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -34,6 +54,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'keydown', event: KeyboardEvent): void
+  (e: 'arrow-keydown', event: KeyboardEvent, direction: 'left' | 'right' | 'up' | 'down'): void
   (e: 'composing', isComposing: boolean): void
   (e: 'settings-click'): void
 }>()
@@ -105,6 +126,14 @@ function onKeydown(event: KeyboardEvent): void {
     return
   }
   emit('keydown', event)
+}
+
+function keydownEvent(event: KeyboardEvent, direction: 'left' | 'right' | 'up' | 'down'): void {
+  // 如果正在输入法组合中,不触发键盘事件
+  if (isComposing.value) {
+    return
+  }
+  emit('arrow-keydown', event, direction)
 }
 
 function updateInputWidth(): void {

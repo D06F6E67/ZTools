@@ -8,6 +8,7 @@
           :current-view="currentView"
           @composing="handleComposing"
           @settings-click="handleSettingsClick"
+          @arrow-keydown="handleArrowKeydown"
         />
       </div>
 
@@ -91,6 +92,59 @@ function handleSettingsClick(): void {
   console.log('切换后视图:', currentView.value)
 }
 
+// 将浏览器 KeyboardEvent 转换为 Electron KeyboardInputEvent 格式
+function convertToElectronKeyboardEvent(
+  direction: 'left' | 'right' | 'up' | 'down',
+  type: 'keyDown' | 'keyUp' = 'keyDown'
+): {
+  type: 'keyDown' | 'keyUp'
+  keyCode: string
+} {
+  // 映射方向键的 keyCode
+  const keyCodeMap: Record<string, string> = {
+    left: 'Left',
+    right: 'Right',
+    up: 'Up',
+    down: 'Down'
+  }
+
+  return {
+    type,
+    keyCode: keyCodeMap[direction]
+  }
+}
+
+// 处理方向键事件
+async function handleArrowKeydown(
+  event: KeyboardEvent,
+  direction: 'left' | 'right' | 'up' | 'down'
+): Promise<void> {
+  // 只在插件模式下转发方向键事件
+  if (currentView.value !== ViewMode.Plugin || !windowStore.currentPlugin) {
+    return
+  }
+
+  // 只有上下方向键阻止默认行为，左右方向键允许在搜索框中移动光标
+  if (direction === 'up' || direction === 'down') {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  // 转换为 Electron 格式
+  const keyDownEvent = convertToElectronKeyboardEvent(direction, 'keyDown')
+  const keyUpEvent = convertToElectronKeyboardEvent(direction, 'keyUp')
+
+  // 发送给主进程：先发送 keyDown，再发送 keyUp
+  try {
+    await window.ztools.sendInputEvent(keyDownEvent)
+    // 短暂延迟后发送 keyUp，模拟真实的按键行为
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await window.ztools.sendInputEvent(keyUpEvent)
+  } catch (error) {
+    console.error('发送方向键事件失败:', error)
+  }
+}
+
 // 分离当前插件到独立窗口
 async function detachCurrentPlugin(): Promise<void> {
   try {
@@ -108,7 +162,7 @@ watch(currentView, (newView, oldView) => {
   if (newView === ViewMode.Plugin) {
     return
   }
-  
+
   // 从设置页面返回搜索页面时，聚焦输入框
   if (oldView === ViewMode.Settings && newView === ViewMode.Search) {
     nextTick(() => {
@@ -116,7 +170,7 @@ watch(currentView, (newView, oldView) => {
       searchResultsRef.value?.resetSelection()
     })
   }
-  
+
   updateWindowHeight()
 })
 

@@ -50,14 +50,14 @@ window.ztools = {
     return await electron.ipcRenderer.invoke('set-expend-height', height)
   },
   // 设置子输入框 (插件模式下的搜索框)
-  setSubInput: async (onChange, placeholder) => {
-    console.log('插件设置子输入框:', { placeholder })
+  setSubInput: async (onChange, placeholder, isFocus = true) => {
+    console.log('插件设置子输入框:', { placeholder, isFocus })
     // 保存回调
     if (onChange && typeof onChange === 'function') {
       subInputChangeCallbacks.push(onChange)
     }
-    // 通知主进程更新 placeholder
-    return await electron.ipcRenderer.invoke('set-sub-input', placeholder)
+    // 通知主进程更新 placeholder，并传递 isFocus 参数
+    return await electron.ipcRenderer.invoke('set-sub-input', placeholder, isFocus)
   },
   // 设置子输入框的值
   setSubInputValue: async (text) => {
