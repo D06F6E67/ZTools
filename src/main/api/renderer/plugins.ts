@@ -211,7 +211,7 @@ export class PluginsAPI {
       console.log('新增指令列表:')
       pluginConfig.features.forEach((feature: any, index: number) => {
         console.log(`  [${index + 1}] ${feature.code} - ${feature.explain || '无说明'}`)
-        
+
         // 格式化 cmds（区分字符串和对象）
         const formattedCmds = feature.cmds
           .map((cmd: any) => {
@@ -226,7 +226,7 @@ export class PluginsAPI {
             return String(cmd)
           })
           .join(', ')
-        
+
         console.log(`      关键词: ${formattedCmds}`)
       })
       console.log('==================\n')
@@ -327,7 +327,7 @@ export class PluginsAPI {
       console.log('新增指令列表:')
       pluginConfig.features.forEach((feature: any, index: number) => {
         console.log(`  [${index + 1}] ${feature.code} - ${feature.explain || '无说明'}`)
-        
+
         // 格式化 cmds（区分字符串和对象）
         const formattedCmds = feature.cmds
           .map((cmd: any) => {
@@ -342,7 +342,7 @@ export class PluginsAPI {
             return String(cmd)
           })
           .join(', ')
-        
+
         console.log(`      关键词: ${formattedCmds}`)
       })
       console.log('=========================\n')

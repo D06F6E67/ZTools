@@ -121,17 +121,20 @@
 
           <!-- 插件：按 feature 分组显示 -->
           <template v-else>
-            <div v-for="feature in groupedFeatures" :key="feature.code" class="card feature-card">
-              <template v-if="feature.textCmds.length > 0">
-                <div class="feature-title">
-                  {{ feature.explain || feature.name }}
-                </div>
-                <div class="feature-commands">
-                  <span v-for="(cmd, idx) in feature.textCmds" :key="idx" class="command-tag">
-                    {{ cmd.text }}
-                  </span>
-                </div>
-              </template>
+            <div
+              v-for="feature in groupedFeatures"
+              v-show="feature.textCmds.length > 0"
+              :key="feature.code"
+              class="card feature-card"
+            >
+              <div class="feature-title">
+                {{ feature.explain || feature.name }}
+              </div>
+              <div class="feature-commands">
+                <span v-for="(cmd, idx) in feature.textCmds" :key="idx" class="command-tag">
+                  {{ cmd.text }}
+                </span>
+              </div>
             </div>
           </template>
         </div>
@@ -144,29 +147,32 @@
           </div>
 
           <!-- 插件：按 feature 分组显示 -->
-          <div v-for="feature in groupedFeatures" :key="feature.code" class="card feature-card">
-            <template v-if="feature.matchCmds.length > 0">
-              <div class="feature-title">
-                {{ feature.explain || feature.name }}
-              </div>
-              <div class="feature-commands">
-                <span
-                  v-for="(cmd, idx) in feature.matchCmds"
-                  :key="idx"
-                  :class="['command-tag', `tag-${cmd.type}`]"
-                >
-                  <template v-if="cmd.type === 'regex'">
-                    <code class="tag-code">{{ cmd.match.match }}</code>
-                  </template>
-                  <template v-else-if="cmd.type === 'over'">
-                    <span class="tag-text"
-                      >长度 {{ cmd.match.minLength }}-{{ cmd.match.maxLength || 10000 }}</span
-                    >
-                  </template>
-                  <span class="tag-badge">{{ cmd.type === 'regex' ? '正则' : '任意' }}</span>
-                </span>
-              </div>
-            </template>
+          <div
+            v-for="feature in groupedFeatures"
+            v-show="feature.matchCmds.length > 0"
+            :key="feature.code"
+            class="card feature-card"
+          >
+            <div class="feature-title">
+              {{ feature.explain || feature.name }}
+            </div>
+            <div class="feature-commands">
+              <span
+                v-for="(cmd, idx) in feature.matchCmds"
+                :key="idx"
+                :class="['command-tag', `tag-${cmd.type}`]"
+              >
+                <template v-if="cmd.type === 'regex'">
+                  <code class="tag-code">{{ cmd.match.match }}</code>
+                </template>
+                <template v-else-if="cmd.type === 'over'">
+                  <span class="tag-text"
+                    >长度 {{ cmd.match.minLength }}-{{ cmd.match.maxLength || 10000 }}</span
+                  >
+                </template>
+                <span class="tag-badge">{{ cmd.type === 'regex' ? '正则' : '任意' }}</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
