@@ -583,14 +583,13 @@ async function handleAppContextMenu(
 async function handleSelectApp(app: any): Promise<void> {
   console.log('选择应用:', app)
   try {
-    // 构造 payload
+    // 构造 payload 和 type
     let payload: any = props.searchQuery
-    let type = 'text'
+    let type = app.cmdType || 'text' // 默认使用 cmd 的类型
 
     if (app.cmdType === 'img' && props.pastedImage) {
       // 图片类型：传递 base64 字符串
       payload = props.pastedImage
-      type = 'img'
     } else if (app.cmdType === 'files' && props.pastedFiles) {
       // 文件类型：将 FileItem[] 转换为 MatchFile[]
       payload = props.pastedFiles.map((file) => ({
@@ -599,7 +598,6 @@ async function handleSelectApp(app: any): Promise<void> {
         name: file.name,
         path: file.path
       })) as MatchFile[]
-      type = 'files'
     }
 
     // 启动应用或插件（后端会自动处理视图切换和添加历史记录）
@@ -611,7 +609,7 @@ async function handleSelectApp(app: any): Promise<void> {
       cmdType: app.cmdType || 'text', // 传递 cmdType 用于判断是否添加历史
       param: {
         payload,
-        type // 传递 cmdType，默认为 text
+        type // 传递 cmd 的实际类型
       }
     })
   } catch (error) {
