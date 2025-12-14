@@ -1,4 +1,6 @@
 import { ipcMain, clipboard, nativeImage } from 'electron'
+import os from 'os'
+import { ClipboardMonitor } from '../../core/native'
 
 /**
  * 剪贴板基础操作API - 插件专用
@@ -59,7 +61,18 @@ export class PluginClipboardAPI {
     ipcMain.on('copy-file', (event, filePath: string | string[]) => {
       try {
         const files = Array.isArray(filePath) ? filePath : [filePath]
-        clipboard.writeBuffer('FileNameW', Buffer.from(files.join('\0') + '\0', 'ucs2'))
+
+        if (os.platform() === 'win32') {
+          // Windows 使用原生 API
+          ClipboardMonitor.setClipboardFiles(files)
+        } else if (os.platform() === 'darwin') {
+          // macOS 使用 Electron API（原生 API 暂不支持）
+          // macOS 需要使用 plist 格式
+          const plist = require('simple-plist')
+          const plistData = plist.stringify(files)
+          clipboard.writeBuffer('NSFilenamesPboardType', Buffer.from(plistData))
+        }
+
         event.returnValue = true
       } catch (error) {
         console.error('复制文件失败:', error)

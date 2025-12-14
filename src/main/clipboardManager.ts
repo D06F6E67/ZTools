@@ -144,10 +144,19 @@ class ClipboardManager {
 
       // 优先级：文件 > 图片 > 文本
       // 跨平台文件检测
-      const hasFiles =
-        os.platform() === 'darwin'
-          ? clipboard.has('NSFilenamesPboardType')
-          : clipboard.availableFormats().includes('FileNameW')
+      let hasFiles = false
+      if (os.platform() === 'darwin') {
+        hasFiles = clipboard.has('NSFilenamesPboardType')
+      } else if (os.platform() === 'win32') {
+        // Windows 使用原生 API 检测文件
+        try {
+          const files = ClipboardMonitor.getClipboardFiles()
+          hasFiles = files.length > 0
+        } catch (error) {
+          console.error('原生 API 获取文件失败:', error)
+          hasFiles = false
+        }
+      }
 
       if (hasFiles) {
         item = await this.handleFile()
@@ -171,7 +180,7 @@ class ClipboardManager {
   // 处理文件
   private async handleFile(): Promise<Partial<ClipboardItem>> {
     try {
-      let filePaths: string[] = []
+      let files: FileItem[] = []
 
       if (os.platform() === 'darwin') {
         // macOS 使用 NSFilenamesPboardType 格式
@@ -189,6 +198,7 @@ class ClipboardManager {
         }
 
         // 解析 plist 格式
+        let filePaths: string[] = []
         try {
           filePaths = plist.parse(result) as string[]
           console.log('解析后的文件列表:', filePaths)
@@ -196,59 +206,45 @@ class ClipboardManager {
           console.error('plist 解析失败:', error)
           return null as any
         }
-      } else {
-        // Windows 使用 FileNameW 格式
-        const formats = clipboard.availableFormats()
-        if (!formats.includes('FileNameW')) {
-          console.error('没有文件类型数据')
+
+        if (!Array.isArray(filePaths) || filePaths.length === 0) {
+          console.error('文件列表为空')
           return null as any
         }
 
-        try {
-          const buffer = clipboard.readBuffer('FileNameW')
-          if (!buffer || buffer.length === 0) {
-            console.error('读取文件数据为空')
-            return null as any
-          }
+        // 处理所有文件，检查是否为文件夹
+        files = await Promise.all(
+          filePaths.map(async (filePath) => {
+            const name = path.basename(filePath)
+            let isDirectory = false
 
-          // 转换为 UCS-2 字符串，按 \0 分割，过滤空字符串
-          const filePathsString = buffer.toString('ucs2')
-          filePaths = filePathsString.split('\0').filter((path) => path.trim().length > 0)
-          console.log('解析后的文件列表:', filePaths)
-        } catch (error) {
-          console.error('解析 Windows 文件列表失败:', error)
-          return null as any
-        }
+            try {
+              const stat = await fs.stat(filePath)
+              isDirectory = stat.isDirectory()
+            } catch (error) {
+              console.error('检查文件状态失败:', filePath, error)
+            }
+
+            return {
+              path: filePath,
+              name,
+              isDirectory
+            }
+          })
+        )
+      } else if (os.platform() === 'win32') {
+        // Windows 使用原生 API 获取文件列表
+        files = ClipboardMonitor.getClipboardFiles()
+        console.log('原生 API 获取的文件列表:', files)
       }
 
-      if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      if (!Array.isArray(files) || files.length === 0) {
         console.error('文件列表为空')
         return null as any
       }
 
-      // 处理所有文件，检查是否为文件夹
-      const files: FileItem[] = await Promise.all(
-        filePaths.map(async (filePath) => {
-          const name = path.basename(filePath)
-          let isDirectory = false
-
-          try {
-            const stat = await fs.stat(filePath)
-            isDirectory = stat.isDirectory()
-          } catch (error) {
-            console.error('检查文件状态失败:', filePath, error)
-          }
-
-          return {
-            path: filePath,
-            name,
-            isDirectory
-          }
-        })
-      )
-
       // 生成 hash（基于所有文件路径）
-      const hashContent = filePaths.join('|')
+      const hashContent = files.map((f) => f.path).join('|')
       const hash = createHash('md5').update(hashContent).digest('hex')
 
       // 生成预览文本
@@ -651,23 +647,15 @@ class ClipboardManager {
               }
             }
           } else {
-            // Windows
-            const formats = clipboard.availableFormats()
-            if (formats.includes('FileNameW')) {
-              try {
-                const buffer = clipboard.readBuffer('FileNameW')
-                if (buffer && buffer.length > 0) {
-                  const filePathsString = buffer.toString('ucs2')
-                  const currentFilePaths = filePathsString
-                    .split('\0')
-                    .filter((path) => path.trim().length > 0)
-                  const itemFilePaths = item.files?.map((f) => f.path) || []
-                  // 比较文件路径列表（顺序也要一致）
-                  isSame = JSON.stringify(currentFilePaths) === JSON.stringify(itemFilePaths)
-                }
-              } catch (error) {
-                console.error('解析当前剪贴板文件列表失败:', error)
-              }
+            // Windows 使用原生 API
+            try {
+              const currentFiles = ClipboardMonitor.getClipboardFiles()
+              const itemFilePaths = item.files?.map((f) => f.path) || []
+              const currentFilePaths = currentFiles.map((f) => f.path)
+              // 比较文件路径列表（顺序也要一致）
+              isSame = JSON.stringify(currentFilePaths) === JSON.stringify(itemFilePaths)
+            } catch (error) {
+              console.error('获取当前剪贴板文件列表失败:', error)
             }
           }
           break
@@ -715,11 +703,9 @@ class ClipboardManager {
                 // macOS 使用 NSFilenamesPboardType 格式
                 const plistData = plist.stringify(filePaths)
                 clipboard.writeBuffer('NSFilenamesPboardType', Buffer.from(plistData))
-              } else {
-                // Windows 使用 FileNameW 格式
-                // 文件路径用 \0 分隔，最后再加一个 \0
-                const filePathsString = filePaths.join('\0') + '\0'
-                clipboard.writeBuffer('FileNameW', Buffer.from(filePathsString, 'ucs2'))
+              } else if (os.platform() === 'win32') {
+                // Windows 使用原生 API
+                ClipboardMonitor.setClipboardFiles(filePaths)
               }
               console.log('文件列表已写回剪贴板:', filePaths)
               return true

@@ -20,6 +20,8 @@ interface NativeAddon {
   startRegionCapture: (
     callback: (result: { success: boolean; width?: number; height?: number }) => void
   ) => void
+  getClipboardFiles: () => ClipboardFile[]
+  setClipboardFiles: (files: Array<string | { path: string }>) => boolean
 }
 
 interface WindowInfo {
@@ -33,6 +35,12 @@ interface ActiveWindowResult {
   bundleId?: string
   processId?: number
   error?: string
+}
+
+interface ClipboardFile {
+  path: string
+  name: string
+  isDirectory: boolean
 }
 
 /**
@@ -82,6 +90,55 @@ export class ClipboardMonitor {
    */
   get isMonitoring(): boolean {
     return this._isMonitoring
+  }
+
+  /**
+   * 获取剪贴板中的文件列表
+   * @returns {Array<{path: string, name: string, isDirectory: boolean}>} 文件列表
+   * - path: 文件完整路径
+   * - name: 文件名
+   * - isDirectory: 是否是目录
+   */
+  static getClipboardFiles(): ClipboardFile[] {
+    if (platform === 'win32') {
+      return (addon as NativeAddon).getClipboardFiles()
+    } else if (platform === 'darwin') {
+      // macOS 暂不支持
+      throw new Error('getClipboardFiles is not yet supported on macOS')
+    }
+    return []
+  }
+
+  /**
+   * 设置剪贴板中的文件列表
+   * @param {Array<string|{path: string}>} files - 文件路径数组
+   * - 支持直接传递字符串路径数组: ['C:\\file1.txt', 'C:\\file2.txt']
+   * - 支持传递对象数组: [{path: 'C:\\file1.txt'}, {path: 'C:\\file2.txt'}]
+   * @returns {boolean} 是否设置成功
+   * @example
+   * // 使用字符串数组
+   * ClipboardMonitor.setClipboardFiles(['C:\\test.txt', 'C:\\folder']);
+   *
+   * // 使用对象数组（兼容 getClipboardFiles 的返回格式）
+   * const files = ClipboardMonitor.getClipboardFiles();
+   * ClipboardMonitor.setClipboardFiles(files);
+   */
+  static setClipboardFiles(files: Array<string | { path: string }>): boolean {
+    if (!Array.isArray(files)) {
+      throw new TypeError('files must be an array')
+    }
+
+    if (files.length === 0) {
+      throw new Error('files array cannot be empty')
+    }
+
+    if (platform === 'win32') {
+      return (addon as NativeAddon).setClipboardFiles(files)
+    } else if (platform === 'darwin') {
+      // macOS 暂不支持
+      throw new Error('setClipboardFiles is not yet supported on macOS')
+    }
+    return false
   }
 }
 
@@ -251,3 +308,6 @@ export class ScreenCapture {
 
 // 为了向后兼容，默认导出 ClipboardMonitor
 export default ClipboardMonitor
+
+// 导出类型
+export type { ClipboardFile, WindowInfo, ActiveWindowResult }
