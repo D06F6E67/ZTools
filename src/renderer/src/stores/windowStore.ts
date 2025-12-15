@@ -324,30 +324,29 @@ export const useWindowStore = defineStore('window', () => {
     }
   }
 
-  // 记录最后一次隐藏窗口的时间
-  const lastHideTime = ref<number>(0)
+  // 记录最后一次窗口显示的时间（用于判断是否需要清空）
+  const lastShowTime = ref<number>(Date.now())
 
-  // 更新最后隐藏时间
-  function updateLastHideTime(): void {
-    lastHideTime.value = Date.now()
-  }
-
-  // 检查是否应该清空搜索框
+  // 检查是否应该清空搜索框（并更新时间）
   function shouldClearSearch(): boolean {
     const timeLimit = getAutoClearTimeLimit()
-    
+    const now = Date.now()
+    const elapsedTime = now - lastShowTime.value
+
+    // 更新时间为当前时间
+    lastShowTime.value = now
+
     // 从不清空
     if (timeLimit === -1) {
       return false
     }
-    
+
     // 立即清空
     if (timeLimit === 0) {
       return true
     }
-    
-    // 根据时间判断
-    const elapsedTime = Date.now() - lastHideTime.value
+
+    // 根据时间判断（窗口隐藏了多久）
     return elapsedTime >= timeLimit
   }
 
@@ -448,7 +447,6 @@ export const useWindowStore = defineStore('window', () => {
     updateCustomColor,
     getAutoPasteTimeLimit,
     getAutoClearTimeLimit,
-    updateLastHideTime,
     shouldClearSearch,
     setUpdateDownloadInfo,
     checkDownloadedUpdate,

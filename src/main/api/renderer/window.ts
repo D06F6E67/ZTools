@@ -32,7 +32,7 @@ export class WindowAPI {
         if (this.mainWindow) {
           const [x, y] = this.mainWindow.getPosition()
           const displayId = windowManager.getCurrentDisplayId()
-          
+
           if (displayId !== null) {
             // 通过 windowManager 保存位置（异步，不阻塞）
             windowManager.saveWindowPosition(displayId, x, y)

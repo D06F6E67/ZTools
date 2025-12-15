@@ -514,7 +514,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
     console.log('searchImageCommands:', {
       total: regexCommands.value.length,
       imgCommands: result.length,
-      allTypes: regexCommands.value.map(c => c.matchCmd?.type)
+      allTypes: regexCommands.value.map((c) => c.matchCmd?.type)
     })
     return result
   }
@@ -540,9 +540,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
     console.log('searchTextCommands:', {
       total: regexCommands.value.length,
       textLength: pastedText.length,
-      overCommands: regexCommands.value.filter(c => c.matchCmd?.type === 'over').length,
+      overCommands: regexCommands.value.filter((c) => c.matchCmd?.type === 'over').length,
       matched: result.length,
-      allTypes: regexCommands.value.map(c => c.matchCmd?.type)
+      allTypes: regexCommands.value.map((c) => c.matchCmd?.type)
     })
 
     return result
@@ -556,8 +556,8 @@ export const useCommandDataStore = defineStore('commandData', () => {
       return []
     }
 
-    const filesCommandsList = regexCommands.value.filter(c => c.matchCmd?.type === 'files')
-    
+    const filesCommandsList = regexCommands.value.filter((c) => c.matchCmd?.type === 'files')
+
     const result = filesCommandsList.filter((cmd) => {
       const filesCmd = cmd.matchCmd as FilesCmd
 
@@ -643,10 +643,10 @@ export const useCommandDataStore = defineStore('commandData', () => {
     console.log('searchFileCommands:', {
       total: regexCommands.value.length,
       fileCount: pastedFiles.length,
-      filesCommands: regexCommands.value.filter(c => c.matchCmd?.type === 'files').length,
+      filesCommands: regexCommands.value.filter((c) => c.matchCmd?.type === 'files').length,
       matched: result.length,
-      allTypes: regexCommands.value.map(c => c.matchCmd?.type),
-      pastedFiles: pastedFiles.map(f => ({ name: f.name, isDir: f.isDirectory }))
+      allTypes: regexCommands.value.map((c) => c.matchCmd?.type),
+      pastedFiles: pastedFiles.map((f) => ({ name: f.name, isDir: f.isDirectory }))
     })
 
     return result

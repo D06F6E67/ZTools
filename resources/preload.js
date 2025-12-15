@@ -17,7 +17,7 @@ const pluginOutCallbacks = []
 const osType = electron.ipcRenderer.sendSync('get-os-type')
 
 window.ztools = {
-  getAppName: () => "zTools",
+  getAppName: () => 'zTools',
   // 平台检测
   isMacOs: () => osType === 'Darwin',
   isMacOS: () => osType === 'Darwin',
@@ -285,7 +285,8 @@ window.ztools = {
   shellShowItemInFolder: (fullPath) =>
     electron.ipcRenderer.sendSync('shell-show-item-in-folder', fullPath),
   // 插件跳转
-  redirect: (label, payload) => electron.ipcRenderer.sendSync('ztools-redirect', { label, payload }),
+  redirect: (label, payload) =>
+    electron.ipcRenderer.sendSync('ztools-redirect', { label, payload }),
   // HTTP 请求头设置
   http: {
     // 设置请求头

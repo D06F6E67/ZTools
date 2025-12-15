@@ -1,7 +1,10 @@
 <template>
   <div ref="scrollContainerRef" class="scrollable-content">
     <!-- 无搜索时显示历史 -->
-    <div v-if="!searchQuery.trim() && !pastedImage && !pastedText && !pastedFiles" class="content-section">
+    <div
+      v-if="!searchQuery.trim() && !pastedImage && !pastedText && !pastedFiles"
+      class="content-section"
+    >
       <!-- 最近使用 -->
       <CollapsibleList
         v-model:expanded="isRecentExpanded"
@@ -421,14 +424,20 @@ const selectedItem = computed(() => {
 
 // 监听搜索内容变化,重置选中状态
 watch(
-  [() => props.searchQuery, () => props.pastedImage, () => props.pastedText, () => props.pastedFiles],
+  [
+    () => props.searchQuery,
+    () => props.pastedImage,
+    () => props.pastedText,
+    () => props.pastedFiles
+  ],
   () => {
     selectedRow.value = 0
     selectedCol.value = 0
     nextTick(() => {
-    emit('height-changed')
-  })
-})
+      emit('height-changed')
+    })
+  }
+)
 
 // 监听展开状态变化，调整窗口高度
 watch(
