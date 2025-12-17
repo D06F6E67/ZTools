@@ -6,13 +6,16 @@ import os from 'os'
  * 屏幕和坐标相关API - 插件专用
  */
 export class PluginScreenAPI {
-  public init(): void {
+  private mainWindow: BrowserWindow | null = null
+
+  public init(mainWindow: BrowserWindow): void {
+    this.mainWindow = mainWindow
     this.setupIPC()
   }
 
   private setupIPC(): void {
     // 屏幕截图
-    ipcMain.handle('screen-capture', () => screenCapture())
+    ipcMain.handle('screen-capture', () => screenCapture(this.mainWindow || undefined))
 
     // 获取主显示器信息
     ipcMain.on('get-primary-display', (event) => {

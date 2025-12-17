@@ -60,7 +60,7 @@ class APIManager {
     pluginDeviceAPI.init()
     pluginDialogAPI.init(mainWindow)
     pluginWindowAPI.init(mainWindow, pluginManager)
-    pluginScreenAPI.init()
+    pluginScreenAPI.init(mainWindow)
     pluginInputAPI.init(pluginManager)
     pluginShellAPI.init()
     pluginRedirectAPI.init(mainWindow)

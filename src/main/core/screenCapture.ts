@@ -1,4 +1,4 @@
-import { clipboard, Notification } from 'electron'
+import { clipboard, Notification, BrowserWindow } from 'electron'
 import { exec } from 'child_process'
 import fs from 'fs'
 import path from 'path'
@@ -36,16 +36,30 @@ export const handleScreenShots = (cb: (image: string) => void): void => {
   })
 }
 
-export const screenCapture = (): Promise<string> => {
+export const screenCapture = (mainWindow?: BrowserWindow): Promise<string> => {
   return new Promise((resolve) => {
+    // 隐藏主窗口
+    const wasVisible = mainWindow?.isVisible() || false
+    if (mainWindow && wasVisible) {
+      mainWindow.hide()
+    }
+
+    // 恢复窗口显示
+    const restoreWindow = (): void => {
+      if (mainWindow && wasVisible) {
+        mainWindow.show()
+      }
+    }
+
     // 接收到截图后的执行程序
-    clipboard.writeText('')
     if (process.platform === 'darwin') {
       handleScreenShots((image) => {
+        restoreWindow()
         resolve(image)
       })
     } else if (process.platform === 'win32') {
       screenWindow((image) => {
+        restoreWindow()
         resolve(image)
       })
     } else {
@@ -53,6 +67,7 @@ export const screenCapture = (): Promise<string> => {
         title: '兼容性支持度不够',
         body: 'Linux 系统截图暂不支持，我们将会尽快更新！'
       }).show()
+      restoreWindow()
       resolve('')
     }
   })
